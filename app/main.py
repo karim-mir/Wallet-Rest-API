@@ -1,6 +1,6 @@
 from fastapi import FastAPI
-from routers import wallets
-from database import engine, Base
+from app.wallets import router as wallets_router
+from app.database import engine, Base
 
 app = FastAPI(
     title="Wallet REST API",
@@ -8,13 +8,12 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Подключаем роутеры
-app.include_router(wallets.router)
+# Подключаем роутер кошельков
+app.include_router(wallets_router)
 
 
 @app.on_event("startup")
 async def startup():
-    # Создаём таблицы (в продакшене используем миграции)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
@@ -22,3 +21,12 @@ async def startup():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+
+@app.get("/")
+async def root():
+    return {
+        "message": "Wallet REST API",
+        "docs": "/docs",
+        "redoc": "/redoc"
+    }
