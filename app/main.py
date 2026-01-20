@@ -1,10 +1,57 @@
+from datetime import datetime
 from enum import Enum
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from pydantic import BaseModel, Field
 from typing import Dict
+from sqlalchemy import create_engine, Column, String, Float, DateTime
+from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.ext.declarative import declarative_base
+from dotenv import load_dotenv
+import os
 import uvicorn
 
+load_dotenv()
+
 app = FastAPI()
+
+#DB settings
+DB_NAME = os.getenv("DB_NAME", "wallet_db")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+DB_USER = os.getenv("DB_USER", "")
+
+#DB строка для подключения
+DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+
+#DB движок
+engine = create_engine(DATABASE_URL)
+
+#Сессии
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+Base = declarative_base()
+
+#DB модель
+class WalletDB(Base):
+    __tablename__ = "wallets"
+
+    uuid = Column(String, primary_key=True, index=True)
+    balance = Column(Float, default=0.0, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+#DB создание таблиц
+Base.metadata.create_all(bind=engine)
+
+# Зависимость для получения сессии БД
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 class OperationType(str, Enum):
     DEPOSIT = "DEPOSIT"
@@ -14,42 +61,57 @@ class OperationRequest(BaseModel):
     operation_type: OperationType
     amount: float = Field(gt=0, description="Сумма должна быть больше 0")
 
-wallets: Dict[str, float] = {}
 
 @app.post("/api/v1/wallets/{WALLET_UUID}/operation", tags=["Баланс кошелька"], summary="Изменить баланс кошелька")
-async def post_wallets(WALLET_UUID: str, operation: OperationRequest):
+async def post_wallets(
+    WALLET_UUID: str,
+    operation: OperationRequest,
+    db: Session = Depends(get_db)
+):
+
+    wallet = db.query(WalletDB).filter(WalletDB.uuid == WALLET_UUID).first()
 
     if operation.operation_type == OperationType.DEPOSIT:
-        current_balance = wallets.get(WALLET_UUID, 0)
-        new_balance = current_balance + operation.amount
-        wallets[WALLET_UUID] = new_balance
-        return {"message": "Операция прошла успешно", "new_balance": new_balance}
+        if wallet:
+            wallet.balance += operation.amount
+        else:
+            wallet = WalletDB(uuid=WALLET_UUID, balance=operation.amount)
+            db.add(wallet)
+
+        db.commit()
+        db.refresh(wallet)
+
+        return {"message": "Депозит выполнен успешно", "new_balance": wallet.balance}
 
     elif operation.operation_type == OperationType.WITHDRAW:
-        if WALLET_UUID not in wallets:
+        if not wallet:
             return {"error": "Кошелек не найден"}
 
-        current_balance = wallets.get(WALLET_UUID)
-
-        if operation.amount > current_balance:
+        if operation.amount > wallet.balance:
             return {"error": "Недостаточно средств на счете"}
 
 
-        new_balance = current_balance - operation.amount
-        wallets[WALLET_UUID] = new_balance
-        return {"message": "Списание выполнено успешно", "new_balance": new_balance}
+        wallet.balance -= operation.amount
+        db.commit()
+        db.refresh(wallet)
+
+        return {"message": "Списание выполнено успешно", "new_balance": wallet.balance}
 
 
 @app.get("/api/v1/wallets/{WALLET_UUID}", tags=["Баланс кошелька"], summary="Получить баланс кошелька")
-async def get_wallets(WALLET_UUID: str):
+async def get_wallets(
+    WALLET_UUID: str,
+    db: Session = Depends(get_db)
+):
+    wallet = db.query(WalletDB).filter(WalletDB.uuid == WALLET_UUID).first()
 
-    if WALLET_UUID not in wallets:
+    if not wallet:
         return {"error": "Кошелек не найден"}
 
-    current_balance = wallets[WALLET_UUID]
     return {
-        "wallet": WALLET_UUID,
-        "balance": current_balance
+        "wallet": wallet.uuid,
+        "balance": wallet.balance,
+        "created_at": wallet.created_at.isoformat() if wallet.created_at else None
     }
 
 
