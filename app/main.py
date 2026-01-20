@@ -1,38 +1,39 @@
+import os
 from datetime import datetime
 from enum import Enum
-from fastapi import FastAPI, Depends
-from pydantic import BaseModel, Field
-from typing import Dict
-from sqlalchemy import create_engine, Column, String, Float, DateTime
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.ext.declarative import declarative_base
-from dotenv import load_dotenv
-import os
+
 import uvicorn
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI
+from pydantic import BaseModel, Field
+from sqlalchemy import Column, DateTime, Float, String, create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import Session, sessionmaker
 
 load_dotenv()
 
 app = FastAPI()
 
-#DB settings
+# DB settings
 DB_NAME = os.getenv("DB_NAME", "wallet_db")
 DB_PORT = os.getenv("DB_PORT", "5432")
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 DB_USER = os.getenv("DB_USER", "")
 
-#DB строка для подключения
+# DB строка для подключения
 DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-#DB движок
+# DB движок
 engine = create_engine(DATABASE_URL)
 
-#Сессии
+# Сессии
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
-#DB модель
+
+# DB модель
 class WalletDB(Base):
     __tablename__ = "wallets"
 
@@ -42,8 +43,9 @@ class WalletDB(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-#DB создание таблиц
+# DB создание таблиц
 Base.metadata.create_all(bind=engine)
+
 
 # Зависимость для получения сессии БД
 def get_db():
@@ -53,20 +55,24 @@ def get_db():
     finally:
         db.close()
 
+
 class OperationType(str, Enum):
     DEPOSIT = "DEPOSIT"
     WITHDRAW = "WITHDRAW"
+
 
 class OperationRequest(BaseModel):
     operation_type: OperationType
     amount: float = Field(gt=0, description="Сумма должна быть больше 0")
 
 
-@app.post("/api/v1/wallets/{WALLET_UUID}/operation", tags=["Баланс кошелька"], summary="Изменить баланс кошелька")
+@app.post(
+    "/api/v1/wallets/{WALLET_UUID}/operation",
+    tags=["Баланс кошелька"],
+    summary="Изменить баланс кошелька",
+)
 async def post_wallets(
-    WALLET_UUID: str,
-    operation: OperationRequest,
-    db: Session = Depends(get_db)
+    WALLET_UUID: str, operation: OperationRequest, db: Session = Depends(get_db)
 ):
 
     wallet = db.query(WalletDB).filter(WalletDB.uuid == WALLET_UUID).first()
@@ -90,7 +96,6 @@ async def post_wallets(
         if operation.amount > wallet.balance:
             return {"error": "Недостаточно средств на счете"}
 
-
         wallet.balance -= operation.amount
         db.commit()
         db.refresh(wallet)
@@ -98,11 +103,12 @@ async def post_wallets(
         return {"message": "Списание выполнено успешно", "new_balance": wallet.balance}
 
 
-@app.get("/api/v1/wallets/{WALLET_UUID}", tags=["Баланс кошелька"], summary="Получить баланс кошелька")
-async def get_wallets(
-    WALLET_UUID: str,
-    db: Session = Depends(get_db)
-):
+@app.get(
+    "/api/v1/wallets/{WALLET_UUID}",
+    tags=["Баланс кошелька"],
+    summary="Получить баланс кошелька",
+)
+async def get_wallets(WALLET_UUID: str, db: Session = Depends(get_db)):
     wallet = db.query(WalletDB).filter(WalletDB.uuid == WALLET_UUID).first()
 
     if not wallet:
@@ -111,9 +117,9 @@ async def get_wallets(
     return {
         "wallet": wallet.uuid,
         "balance": wallet.balance,
-        "created_at": wallet.created_at.isoformat() if wallet.created_at else None
+        "created_at": wallet.created_at.isoformat() if wallet.created_at else None,
     }
 
 
-if __name__ == '__main__':
-    uvicorn.run("main:app", host='0.0.0.0', port=5000, reload=True)
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=5000, reload=True)
