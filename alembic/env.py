@@ -1,6 +1,7 @@
 import os
 import sys
 from logging.config import fileConfig
+
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
@@ -10,9 +11,9 @@ from alembic import context
 # Добавляем путь к проекту
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
+from app.database import DATABASE_URL
 # Импортируем модели
 from app.models import Base
-from app.database import DATABASE_URL
 
 # this is the Alembic Config object
 config = context.config
@@ -67,4 +68,5 @@ if context.is_offline_mode():
     run_migrations_offline()
 else:
     import asyncio
+
     asyncio.run(run_migrations_online())

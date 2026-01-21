@@ -1,18 +1,19 @@
 """Create wallets table
 
 Revision ID: 734902a2556c
-Revises: 
+Revises:
 Create Date: 2026-01-20 14:51:18.498511
 
 """
+
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = '734902a2556c'
+revision: str = "734902a2556c"
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

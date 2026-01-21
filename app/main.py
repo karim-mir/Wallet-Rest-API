@@ -1,6 +1,7 @@
 from fastapi import FastAPI
+
+from app.database import Base, engine
 from app.wallets import router as wallets_router
-from app.database import engine, Base
 
 app = FastAPI(
     title="Wallet REST API",
@@ -25,8 +26,4 @@ async def health_check():
 
 @app.get("/")
 async def root():
-    return {
-        "message": "Wallet REST API",
-        "docs": "/docs",
-        "redoc": "/redoc"
-    }
+    return {"message": "Wallet REST API", "docs": "/docs", "redoc": "/redoc"}

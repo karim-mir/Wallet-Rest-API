@@ -1,5 +1,7 @@
-from sqlalchemy import Column, DateTime, Float, String
 from datetime import datetime
+
+from sqlalchemy import Column, DateTime, Float, String
+
 from .database import Base
 
 
@@ -10,4 +12,3 @@ class Wallet(Base):
     balance = Column(Float, default=0.0, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    

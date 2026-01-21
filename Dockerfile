@@ -3,14 +3,22 @@ FROM python:3.12-alpine
 WORKDIR /app
 
 # Устанавливаем системные зависимости
-RUN apt-get update && apt-get install -y \
+RUN apk add --no-cache \
     gcc \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+    musl-dev \
+    postgresql-dev \
+    libffi-dev \
+    openssl-dev
 
-# Копируем зависимости
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Устанавливаем Poetry
+RUN pip install poetry
+
+# Копируем файлы Poetry
+COPY pyproject.toml poetry.lock* ./
+
+# Конфигурируем Poetry
+RUN poetry config virtualenvs.create false \
+    && poetry install --no-interaction --no-ansi --no-root
 
 # Копируем код приложения
 COPY ./app /app/app
@@ -18,7 +26,7 @@ COPY alembic.ini /app/
 COPY alembic /app/alembic
 
 # Создаём не-root пользователя
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+RUN adduser -D -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
 # Запускаем приложение

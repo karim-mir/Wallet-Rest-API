@@ -1,10 +1,9 @@
+import models
+import schemas
+from database import get_db
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from database import get_db
-
-import schemas, models
 
 router = APIRouter(prefix="/api/v1/wallets", tags=["wallets"])
 
@@ -18,9 +17,9 @@ router = APIRouter(prefix="/api/v1/wallets", tags=["wallets"])
     },
 )
 async def change_balance(
-        wallet_uuid: str,
-        operation: schemas.OperationRequest,
-        db: AsyncSession = Depends(get_db),
+    wallet_uuid: str,
+    operation: schemas.OperationRequest,
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Изменить баланс кошелька с использованием блокировок FOR UPDATE
@@ -52,7 +51,7 @@ async def change_balance(
 
             return {
                 "message": "Депозит выполнен успешно",
-                "new_balance": wallet.balance
+                "new_balance": wallet.balance,
             }
 
         elif operation.operation_type == schemas.OperationType.WITHDRAW:
@@ -71,8 +70,7 @@ async def change_balance(
             if operation.amount > wallet.balance:
                 await db.rollback()
                 raise HTTPException(
-                    status_code=400,
-                    detail="Недостаточно средств на счете"
+                    status_code=400, detail="Недостаточно средств на счете"
                 )
 
             wallet.balance -= operation.amount
@@ -81,7 +79,7 @@ async def change_balance(
 
             return {
                 "message": "Списание выполнено успешно",
-                "new_balance": wallet.balance
+                "new_balance": wallet.balance,
             }
 
     except Exception as e:
@@ -90,7 +88,7 @@ async def change_balance(
         if "could not obtain lock" in str(e).lower():
             raise HTTPException(
                 status_code=409,  # Conflict
-                detail="Операция уже выполняется. Попробуйте позже."
+                detail="Операция уже выполняется. Попробуйте позже.",
             )
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
@@ -101,8 +99,8 @@ async def change_balance(
     responses={404: {"model": schemas.ErrorResponse}},
 )
 async def get_balance(
-        wallet_uuid: str,
-        db: AsyncSession = Depends(get_db),
+    wallet_uuid: str,
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Получить баланс кошелька.
